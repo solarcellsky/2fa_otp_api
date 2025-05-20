@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
+from datetime import timedelta
 from ..models.schemas import UserCreate, UserInfo, UserRegistrationResponse
 from ..models.database import User, TOTPSecret
-from ..db.database import get_db
+from ..db.database import get_db, settings
 from ..utils.security import SecurityManager
 from ..utils.totp import TOTPManager, SecretEncryption
 from ..auth.auth import get_current_user
@@ -55,10 +56,16 @@ def register_user(user_data: UserCreate, db: Session = Depends(get_db)):
     db.add(new_totp_secret)
     db.commit()
 
+    # 创建临时令牌
+    expires = timedelta(minutes=settings.TEMP_TOKEN_EXPIRE_MINUTES)
+    temp_token = SecurityManager.create_temp_token(
+        data={"sub": str(new_user.id)}, expires_delta=expires)
+
     # 返回用户信息和TOTP密钥
     return {
         "user_id": new_user.id,
         "totp_secret": totp_secret,
+        "temp_token": temp_token,
         "totp_uri": totp_uri,
         "qr_code": qr_code
     }

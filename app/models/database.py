@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, T
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import expression
-from datetime import datetime
+from datetime import datetime, timezone
 
 Base = declarative_base()
 
@@ -15,10 +15,10 @@ class User(Base):
     username = Column(String(50), unique=True, nullable=False, index=True)
     email = Column(String(100), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime,
-                        default=datetime.utcnow,
-                        onupdate=datetime.utcnow)
+                        default=lambda: datetime.now(timezone.utc),
+                        onupdate=lambda: datetime.now(timezone.utc))
 
     # 关系
     totp_secrets = relationship("TOTPSecret",
@@ -49,10 +49,10 @@ class TOTPSecret(Base):
     is_verified = Column(Boolean,
                          default=False,
                          server_default=expression.false())  # 是否已验证
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime,
-                        default=datetime.utcnow,
-                        onupdate=datetime.utcnow)
+                        default=lambda: datetime.now(timezone.utc),
+                        onupdate=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="totp_secrets")
 
@@ -70,7 +70,7 @@ class AuthSession(Base):
     access_token = Column(String(255), unique=True, nullable=True, index=True)
     temp_token_expires_at = Column(DateTime, nullable=True)
     access_token_expires_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="auth_sessions")
 
@@ -86,7 +86,7 @@ class AuthAttempt(Base):
                      index=True)
     ip_address = Column(String(45), nullable=True)
     success = Column(Boolean, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
     user = relationship("User", back_populates="auth_attempts")
 
@@ -103,8 +103,8 @@ class TrustedDevice(Base):
     device_identifier = Column(String(255), nullable=False, index=True)
     device_name = Column(String(100), nullable=False)
     device_token = Column(String(255), nullable=False)
-    last_used_at = Column(DateTime, default=datetime.utcnow)
+    last_used_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     expires_at = Column(DateTime, nullable=False, index=True)
     ip_address = Column(String(45), nullable=True)
     user_agent = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
