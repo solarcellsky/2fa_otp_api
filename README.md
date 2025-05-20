@@ -52,9 +52,7 @@ pip install -r requirements.txt
 
 1. 创建PostgreSQL数据库：
 
-```bash
-createdb totp_auth
-```
+执行 database_schema.sql
 
 2. 配置环境变量（可创建.env文件）：
 
@@ -71,6 +69,14 @@ python run.py
 ```
 
 服务将在 http://localhost:8000 上运行，API文档可在 http://localhost:8000/docs 访问。
+
+## 启动 Web 服务
+
+```bash
+python run.py web
+```
+
+服务将在 http://localhost:8081 上运行。
 
 ## API端点
 
