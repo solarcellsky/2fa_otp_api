@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2FA + TOTP 认证客户端</title>
+    <link rel="stylesheet" href="src/css/styles.css">
+    <!-- 引入Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <h2 class="text-center mb-0">2FA + TOTP 认证系统</h2>
+                    </div>
+                    <div class="card-body">
+                        <!-- 导航标签 -->
+                        <ul class="nav nav-tabs" id="authTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="register-tab" data-bs-toggle="tab" data-bs-target="#register" type="button" role="tab" aria-controls="register" aria-selected="true">注册</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="login-tab" data-bs-toggle="tab" data-bs-target="#login" type="button" role="tab" aria-controls="login" aria-selected="false">登录</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="profile-tab" data-bs-toggle="tab" data-bs-target="#profile" type="button" role="tab" aria-controls="profile" aria-selected="false">用户信息</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="trusted-devices-tab" data-bs-toggle="tab" data-bs-target="#trusted-devices" type="button" role="tab" aria-controls="trusted-devices" aria-selected="false">信任设备</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="reset-tab" data-bs-toggle="tab" data-bs-target="#reset" type="button" role="tab" aria-controls="reset" aria-selected="false">重置TOTP</button>
+                            </li>
+                        </ul>
+
+                        <!-- 标签内容 -->
+                        <div class="tab-content p-3" id="authTabsContent">
+                            <!-- 注册表单 -->
+                            <div class="tab-pane fade show active" id="register" role="tabpanel" aria-labelledby="register-tab">
+                                <h4 class="mb-4">创建新账户</h4>
+                                <form id="registerForm">
+                                    <div class="mb-3">
+                                        <label for="registerUsername" class="form-label">用户名</label>
+                                        <input type="text" class="form-control" id="registerUsername" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="registerEmail" class="form-label">电子邮箱</label>
+                                        <input type="email" class="form-control" id="registerEmail" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="registerPassword" class="form-label">密码</label>
+                                        <input type="password" class="form-control" id="registerPassword" required>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary w-100">注册</button>
+                                </form>
+                                
+                                <!-- 注册结果 -->
+                                <div id="registerResult" class="mt-4 d-none">
+                                    <div class="alert alert-success">
+                                        <h5>注册成功！</h5>
+                                        <p>请使用认证器应用扫描下方二维码，或手动添加密钥。</p>
+                                    </div>
+                                    <div class="text-center mb-3">
+                                        <img id="qrCodeImage" class="img-fluid border p-2" alt="TOTP QR Code">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">TOTP 密钥</label>
+                                        <input type="text" class="form-control" id="totpSecret" readonly>
+                                    </div>
+                                    <div class="alert alert-warning">
+                                        <strong>重要提示：</strong> 请保存此密钥！如果您丢失了认证器应用，将需要此密钥来恢复访问。
+                                    </div>
+                                    
+                                    <!-- 注册验证表单 -->
+                                    <form id="registerVerifyForm">
+                                        <div class="alert alert-info">
+                                            <p>请输入您的认证器应用中显示的6位验证码，以确认您的验证器已正确配置。</p>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="registerVerifyCode" class="form-label">6位TOTP验证码</label>
+                                            <input type="text" class="form-control" id="registerVerifyCode" maxlength="6" pattern="[0-9]{6}" required>
+                                        </div>
+                                        <button type="submit" class="btn btn-success w-100" id="verifyButton">验证</button>
+                                        <div id="verifySuccess" class="alert alert-success mt-3 d-none">
+                                            <p>验证成功！您的验证器应用已正确配置。</p>
+                                        </div>
+                                    </form>
+                                    
+                                    <button class="btn btn-primary w-100 mt-3" id="goToLoginBtn">前往登录</button>
+                                </div>
+                            </div>
+
+                            <!-- 登录表单 -->
+                            <div class="tab-pane fade" id="login" role="tabpanel" aria-labelledby="login-tab">
+                                <!-- 第一步：用户名和密码 -->
+                                <div id="loginStep1">
+                                    <h4 class="mb-4">账户登录</h4>
+                                    <form id="loginForm">
+                                        <div class="mb-3">
+                                            <label for="loginUsername" class="form-label">用户名</label>
+                                            <input type="text" class="form-control" id="loginUsername" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="loginPassword" class="form-label">密码</label>
+                                            <input type="password" class="form-control" id="loginPassword" required>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary w-100">登录</button>
+                                    </form>
+                                </div>
+
+                                <!-- 第二步：TOTP验证 -->
+                                <div id="loginStep2" class="d-none">
+                                    <h4 class="mb-4">验证码确认</h4>
+                                    <div class="alert alert-info">
+                                        <p>请输入您的认证器应用中显示的6位验证码</p>
+                                    </div>
+                                    <form id="totpForm">
+                                        <div class="mb-3">
+                                            <label for="totpCode" class="form-label">6位TOTP验证码</label>
+                                            <input type="text" class="form-control" id="totpCode" maxlength="6" pattern="[0-9]{6}" required>
+                                        </div>
+                                        <div class="mb-3 form-check">
+                                            <input type="checkbox" class="form-check-input" id="trustDeviceCheckbox">
+                                            <label class="form-check-label" for="trustDeviceCheckbox">信任此设备（30天内无需TOTP验证）</label>
+                                        </div>
+                                        <div id="deviceNameGroup" class="mb-3 d-none">
+                                            <label for="deviceNameInput" class="form-label">设备名称</label>
+                                            <input type="text" class="form-control" id="deviceNameInput" placeholder="例如：我的笔记本电脑">
+                                        </div>
+                                        <button type="submit" class="btn btn-primary w-100">验证</button>
+                                        <button type="button" class="btn btn-outline-secondary w-100 mt-2" id="backToLoginStep1">返回</button>
+                                        <div class="mt-3 text-center">
+                                            <a href="#" id="totpSecretLoginLink">验证器丢失，使用TOTP密钥登录</a>
+                                        </div>
+                                    </form>
+                                </div>
+
+                                <!-- TOTP密钥登录表单 -->
+                                <div id="totpSecretLoginForm" class="d-none">
+                                    <h4 class="mb-4">使用TOTP密钥登录</h4>
+                                    <div class="alert alert-info">
+                                        <p>如果您丢失了认证器应用，可以使用之前保存的TOTP密钥直接登录。</p>
+                                    </div>
+                                    <form>
+                                        <div class="mb-3">
+                                            <label for="secretLoginUsername" class="form-label">用户名</label>
+                                            <input type="text" class="form-control" id="secretLoginUsername" placeholder="与登录表单相同">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="secretLoginPassword" class="form-label">密码</label>
+                                            <input type="password" class="form-control" id="secretLoginPassword" placeholder="与登录表单相同">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="secretLoginTotpSecret" class="form-label">TOTP密钥</label>
+                                            <input type="text" class="form-control" id="secretLoginTotpSecret" required>
+                                        </div>
+                                        <div class="mb-3 form-check">
+                                            <input type="checkbox" class="form-check-input" id="secretLoginTrustDeviceCheckbox">
+                                            <label class="form-check-label" for="secretLoginTrustDeviceCheckbox">信任此设备（30天内无需TOTP验证）</label>
+                                        </div>
+                                        <div id="secretLoginDeviceNameGroup" class="mb-3 d-none">
+                                            <label for="secretLoginDeviceNameInput" class="form-label">设备名称</label>
+                                            <input type="text" class="form-control" id="secretLoginDeviceNameInput" placeholder="例如：我的笔记本电脑">
+                                        </div>
+                                        <button type="submit" class="btn btn-primary w-100">登录</button>
+                                        <button type="button" class="btn btn-outline-secondary w-100 mt-2" id="backToTotpBtn">返回TOTP验证</button>
+                                    </form>
+                                </div>
+
+                                <!-- 登录成功 -->
+                                <div id="loginSuccess" class="d-none">
+                                    <div class="alert alert-success">
+                                        <h5>登录成功！</h5>
+                                        <p>您已通过双因素认证。</p>
+                                    </div>
+                                    <button class="btn btn-info w-100" id="viewProfileBtn">查看个人信息</button>
+                                </div>
+                            </div>
+
+                            <!-- 用户信息 -->
+                            <div class="tab-pane fade" id="profile" role="tabpanel" aria-labelledby="profile-tab">
+                                <div id="profileNotLoggedIn">
+                                    <div class="alert alert-warning">
+                                        <h5>未登录</h5>
+                                        <p>请先登录以查看您的个人信息。</p>
+                                    </div>
+                                    <button class="btn btn-primary w-100" id="goToLoginFromProfile">前往登录</button>
+                                </div>
+                                
+                                <div id="profileLoggedIn" class="d-none">
+                                    <h4 class="mb-4">用户信息</h4>
+                                    <div class="card mb-3">
+                                        <div class="card-body">
+                                            <div class="mb-3">
+                                                <label class="form-label fw-bold">用户ID</label>
+                                                <p id="profileUserId" class="form-control"></p>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label fw-bold">用户名</label>
+                                                <p id="profileUsername" class="form-control"></p>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label fw-bold">电子邮箱</label>
+                                                <p id="profileEmail" class="form-control"></p>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label fw-bold">2FA状态</label>
+                                                <p id="profile2faStatus" class="form-control"></p>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label fw-bold">创建时间</label>
+                                                <p id="profileCreatedAt" class="form-control"></p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-danger w-100" id="logoutBtn">退出登录</button>
+                                </div>
+                            </div>
+
+                            <!-- 信任设备 -->
+                            <div class="tab-pane fade" id="trusted-devices" role="tabpanel" aria-labelledby="trusted-devices-tab">
+                                <div id="trustedDevicesNotLoggedIn">
+                                    <div class="alert alert-warning">
+                                        <h5>未登录</h5>
+                                        <p>请先登录以管理您的信任设备。</p>
+                                    </div>
+                                    <button class="btn btn-primary w-100" id="goToLoginFromDevices">前往登录</button>
+                                </div>
+                                
+                                <div id="trustedDevicesLoggedIn" class="d-none">
+                                    <h4 class="mb-4">信任设备管理</h4>
+                                    <div class="alert alert-info mb-3">
+                                        <p>信任设备可以让您在特定设备上跳过TOTP验证步骤，提高登录便捷性。</p>
+                                        <p>您可以随时撤销对设备的信任。</p>
+                                    </div>
+                                    
+                                    <div id="trustedDevicesList" class="mb-3">
+                                        <!-- 设备列表将在这里动态加载 -->
+                                    </div>
+                                    
+                                    <button class="btn btn-danger w-100" id="revokeAllDevicesBtn">撤销所有设备信任</button>
+                                </div>
+                            </div>
+
+                            <!-- 重置TOTP -->
+                            <div class="tab-pane fade" id="reset" role="tabpanel" aria-labelledby="reset-tab">
+                                <div id="resetNotLoggedIn">
+                                    <div class="alert alert-warning">
+                                        <h5>未登录</h5>
+                                        <p>请先登录以重置您的TOTP密钥。</p>
+                                    </div>
+                                    <button class="btn btn-primary w-100" id="goToLoginFromReset">前往登录</button>
+                                </div>
+                                
+                                <div id="resetLoggedIn" class="d-none">
+                                    <h4 class="mb-4">重置TOTP密钥</h4>
+                                    <div class="alert alert-warning">
+                                        <strong>警告：</strong> 重置TOTP密钥将使您当前的认证器应用失效。您需要使用新密钥重新配置您的认证器应用。
+                                        <p class="mt-2 mb-0"><strong>注意：</strong> 重置TOTP密钥也会撤销所有信任设备。</p>
+                                    </div>
+                                    <button class="btn btn-danger w-100" id="resetTotpBtn">重置TOTP密钥</button>
+                                    
+                                    <div id="resetResult" class="mt-4 d-none">
+                                        <div class="alert alert-success">
+                                            <h5>TOTP密钥已重置！</h5>
+                                            <p>请使用认证器应用扫描下方二维码，或手动添加新密钥。</p>
+                                        </div>
+                                        <div class="text-center mb-3">
+                                            <img id="resetQrCodeImage" class="img-fluid border p-2" alt="New TOTP QR Code">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">新TOTP密钥</label>
+                                            <input type="text" class="form-control" id="resetTotpSecret" readonly>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer text-center">
+                        <p class="mb-0">2FA + TOTP 认证系统 &copy; 2025</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- API URL配置 -->
+    <div class="container mt-4">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header bg-secondary text-white">
+                        API配置
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="apiUrl" class="form-label">API服务器URL</label>
+                            <input type="url" class="form-control" id="apiUrl" value="http://localhost:8000">
+                            <div class="form-text">设置2FA+TOTP认证API的基础URL</div>
+                        </div>
+                        <button class="btn btn-secondary w-100" id="saveApiUrlBtn">保存配置</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 通知弹窗 -->
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+        <div id="notificationToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <strong class="me-auto" id="toastTitle">通知</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body" id="toastMessage">
+                操作成功！
+            </div>
+        </div>
+    </div>
+
+    <!-- 引入Bootstrap和自定义JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="src/js/api.js"></script>
+    <script src="src/js/app.js"></script>
+</body>
+</html>

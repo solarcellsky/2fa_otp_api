@@ -1,0 +1,51 @@
+/* 2FA + TOTP 认证客户端样式 */
+
+body {
+    background-color: #f8f9fa;
+}
+
+.card {
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.card-header {
+    border-radius: 10px 10px 0 0 !important;
+}
+
+.form-control {
+    border-radius: 5px;
+}
+
+.btn {
+    border-radius: 5px;
+    padding: 8px 16px;
+}
+
+.nav-tabs .nav-link {
+    border-radius: 5px 5px 0 0;
+}
+
+.nav-tabs .nav-link.active {
+    font-weight: bold;
+}
+
+#qrCodeImage, #resetQrCodeImage {
+    max-width: 250px;
+    margin: 0 auto;
+}
+
+.toast {
+    border-radius: 5px;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .container {
+        padding: 10px;
+    }
+    
+    .card {
+        margin-bottom: 20px;
+    }
+}
